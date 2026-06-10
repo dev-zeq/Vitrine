@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<!--
+  ============================================================
+  DEMO · RESTAURANTE  "Fogo & Sal"
+  ------------------------------------------------------------
+  Destaque (o "uau"): cardápio com categorias (abas) + um
+  "carrinho de pedido" que sobe do rodapé e finaliza no WhatsApp.
+
+  Identidade visual: jantar quente e aconchegante — fundo café
+  escuro, texto creme, acento âmbar/açafrão. Fontes Marcellus + Mulish.
+
+  Onde personalizar rápido:
+  - Cores: bloco :root no início do <style>.
+  - Pratos e preços: na constante CARDAPIO (no <script>) — fácil de editar.
+  - WhatsApp do cliente: procure por "TROQUE-AQUI".
+  ============================================================
+-->
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fogo &amp; Sal · Demonstração de restaurante</title>
+  <meta name="description" content="Demonstração de site para restaurante com cardápio interativo e pedido pelo WhatsApp." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Mulish:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ====================== TOKENS DO RESTAURANTE ====================== */
+    :root{
+      --bg:      #1E1611;   /* café escuro             */
+      --surface: #2A201A;   /* cartões                 */
+      --surface2:#352A22;
+      --ink:     #F2E8D8;   /* creme (texto)           */
+      --muted:   #B8A48E;   /* texto secundário        */
+      --accent:  #E0A23A;   /* açafrão/âmbar (assinatura)*/
+      --herb:    #8FA968;   /* verde-erva (vegetariano)*/
+      --line:    rgba(242,232,216,.12);
+      --radius:  16px;
+      --ease: cubic-bezier(.22,1,.36,1);
+    }
+    *{ margin:0; padding:0; box-sizing:border-box; }
+    html{ scroll-behavior:smooth; }
+    body{
+      background:var(--bg); color:var(--ink);
+      font-family:'Mulish', system-ui, sans-serif; line-height:1.6;
+      -webkit-font-smoothing:antialiased; overflow-x:hidden;
+      padding-bottom:90px; /* espaço para o carrinho fixo */
+    }
+    a{ color:inherit; text-decoration:none; }
+    button{ font:inherit; cursor:pointer; border:none; background:none; color:inherit; }
+    :focus-visible{ outline:2px solid var(--accent); outline-offset:3px; border-radius:8px; }
+    .wrap{ max-width:1080px; margin:0 auto; padding:0 24px; }
+    .display{ font-family:'Marcellus', serif; font-weight:400; letter-spacing:.01em; }
+
+    /* ====================== BARRA SUPERIOR ====================== */
+    .nav{
+      position:sticky; top:0; z-index:50;
+      background:color-mix(in srgb, var(--bg) 84%, transparent);
+      backdrop-filter:blur(12px); border-bottom:1px solid var(--line);
+    }
+    .nav__in{ display:flex; align-items:center; justify-content:space-between; height:66px; }
+    .logo{ display:flex; align-items:center; gap:11px; font-family:'Marcellus',serif; font-size:1.3rem; letter-spacing:.04em; }
+    .logo__mark{ width:30px; height:30px; border-radius:8px; background:radial-gradient(circle at 35% 30%, #F6C76A, var(--accent)); display:grid; place-items:center; color:#2A201A; font-weight:800; }
+    .nav__links{ display:flex; gap:28px; }
+    .nav__links a{ font-size:.92rem; color:var(--muted); transition:color .25s; }
+    .nav__links a:hover{ color:var(--ink); }
+    .btn{
+      display:inline-flex; align-items:center; gap:8px; padding:11px 20px; border-radius:8px;
+      font-weight:700; font-size:.92rem; background:var(--accent); color:#2A201A;
+      transition:transform .3s var(--ease), box-shadow .3s var(--ease), filter .3s;
+    }
+    .btn:hover{ transform:translateY(-2px); box-shadow:0 12px 26px rgba(224,162,58,.3); filter:brightness(1.05); }
+    .btn--ghost{ background:transparent; color:var(--ink); border:1px solid var(--line); }
+    .btn--ghost:hover{ border-color:var(--accent); box-shadow:none; }
+
+    /* ====================== HERO ====================== */
+    .hero{ position:relative; padding:90px 0 70px; text-align:center; }
+    .hero__art{
+      position:absolute; inset:0; z-index:0; opacity:.5;
+      background:
+        radial-gradient(60% 50% at 50% 0%, rgba(224,162,58,.34), transparent 70%),
+        radial-gradient(40% 60% at 80% 30%, rgba(180,60,30,.30), transparent 70%),
+        radial-gradient(40% 50% at 15% 60%, rgba(143,169,104,.18), transparent 70%);
+    }
+    .hero__art::after{
+      content:""; position:absolute; inset:0;
+      background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.05'/%3E%3C/svg%3E");
+    }
+    .hero__in{ position:relative; z-index:1; }
+    .hero__eyebrow{ font-size:.74rem; font-weight:700; letter-spacing:.22em; text-transform:uppercase; color:var(--accent); }
+    .hero h1{ font-size:clamp(2.8rem,8vw,5rem); line-height:1.04; margin:18px 0; }
+    .hero p{ color:var(--muted); font-size:1.12rem; max-width:480px; margin:0 auto; }
+    .hero__actions{ display:flex; gap:12px; justify-content:center; margin-top:32px; flex-wrap:wrap; }
+
+    /* ====================== TÍTULO DE SEÇÃO ====================== */
+    .sec{ padding:64px 0; }
+    .sec__tag{ font-size:.74rem; font-weight:700; letter-spacing:.2em; text-transform:uppercase; color:var(--accent); text-align:center; display:block; }
+    .sec__title{ font-size:clamp(2rem,5vw,3rem); text-align:center; margin-top:10px; }
+    .sec__lead{ color:var(--muted); text-align:center; max-width:480px; margin:12px auto 0; }
+
+    /* ====================== CARDÁPIO (abas + itens) ====================== */
+    .tabs{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin:34px 0 32px; }
+    .tab{ padding:10px 20px; border-radius:100px; background:var(--surface); border:1px solid var(--line); font-weight:600; font-size:.9rem; color:var(--muted); transition:all .25s var(--ease); }
+    .tab:hover{ color:var(--ink); border-color:var(--accent); }
+    .tab.active{ background:var(--accent); color:#2A201A; border-color:var(--accent); }
+
+    .menu{ display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:880px; margin:0 auto; }
+    .dish{
+      display:flex; gap:16px; align-items:center; background:var(--surface);
+      border:1px solid var(--line); border-radius:var(--radius); padding:16px;
+      transition:transform .3s var(--ease), border-color .3s, box-shadow .3s;
+    }
+    .dish:hover{ transform:translateY(-3px); border-color:color-mix(in srgb,var(--accent) 45%,transparent); box-shadow:0 16px 34px rgba(0,0,0,.3); }
+    .dish__emoji{
+      width:58px; height:58px; flex:none; border-radius:14px; display:grid; place-items:center; font-size:1.7rem;
+      background:radial-gradient(circle at 35% 30%, var(--surface2), #1a130f);
+      border:1px solid var(--line);
+    }
+    .dish__body{ flex:1; min-width:0; }
+    .dish__top{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+    .dish__name{ font-family:'Marcellus',serif; font-size:1.12rem; }
+    .dish__price{ font-family:'Marcellus',serif; color:var(--accent); white-space:nowrap; }
+    .dish__desc{ color:var(--muted); font-size:.84rem; margin:3px 0 10px; }
+    .dish__veg{ display:inline-block; font-size:.66rem; font-weight:700; letter-spacing:.08em; color:var(--herb); border:1px solid color-mix(in srgb,var(--herb) 50%,transparent); padding:2px 7px; border-radius:100px; margin-left:6px; vertical-align:middle; }
+    .add{
+      display:inline-flex; align-items:center; gap:7px; padding:8px 15px; border-radius:100px;
+      background:color-mix(in srgb,var(--accent) 16%, transparent); color:var(--accent);
+      font-weight:700; font-size:.84rem; border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);
+      transition:all .25s var(--ease);
+    }
+    .add:hover{ background:var(--accent); color:#2A201A; }
+    .add.bump{ animation:bump .4s var(--ease); }
+    @keyframes bump{ 0%{ transform:scale(1) } 40%{ transform:scale(.9) } 100%{ transform:scale(1) } }
+
+    /* itens entram com leve atraso ao trocar de aba */
+    .dish.enter{ animation:fadeUp .45s var(--ease) both; }
+    @keyframes fadeUp{ from{ opacity:0; transform:translateY(14px) } to{ opacity:1; transform:none } }
+
+    /* ====================== SOBRE / AMBIENTE ====================== */
+    .about{ display:grid; grid-template-columns:1fr 1fr; gap:30px; align-items:center; margin-top:30px; }
+    .about__art{
+      aspect-ratio:5/4; border-radius:22px; position:relative; overflow:hidden;
+      background:linear-gradient(150deg,#5A3A1E,#2A201A 70%,#1a130f);
+      border:1px solid var(--line);
+    }
+    .about__art::before{ content:"🔥"; position:absolute; inset:0; display:grid; place-items:center; font-size:4rem; opacity:.55; }
+    .about h2{ font-size:clamp(1.8rem,4vw,2.6rem); }
+    .about p{ color:var(--muted); margin-top:16px; }
+    .about__stats{ display:flex; gap:30px; margin-top:26px; }
+    .about__stats b{ font-family:'Marcellus',serif; font-size:1.8rem; color:var(--accent); display:block; }
+    .about__stats small{ color:var(--muted); font-size:.82rem; }
+
+    /* ====================== HORÁRIOS ====================== */
+    .hours{ display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:34px; }
+    .hours__card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:30px; }
+    .hours__card h3{ font-family:'Marcellus',serif; font-size:1.35rem; margin-bottom:18px; }
+    .hours__row{ display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line); font-size:.94rem; }
+    .hours__row:last-child{ border:none; }
+    .hours__row span{ color:var(--muted); }
+
+    /* ====================== CARRINHO DE PEDIDO ====================== */
+    /* Pílula fixa no rodapé (some quando o pedido está vazio) */
+    .cart-pill{
+      position:fixed; left:50%; bottom:20px; transform:translateX(-50%) translateY(140%);
+      z-index:60; display:flex; align-items:center; gap:16px;
+      background:var(--accent); color:#2A201A; padding:14px 20px; border-radius:100px;
+      box-shadow:0 16px 40px rgba(224,162,58,.4); font-weight:800;
+      transition:transform .45s var(--ease); cursor:pointer; max-width:calc(100% - 32px);
+    }
+    .cart-pill.show{ transform:translateX(-50%) translateY(0); }
+    .cart-pill__count{ background:#2A201A; color:var(--accent); border-radius:100px; padding:3px 10px; font-size:.85rem; }
+    .cart-pill__total{ font-family:'Marcellus',serif; }
+    .cart-pill__go{ display:flex; align-items:center; gap:6px; font-size:.9rem; }
+
+    /* Bottom sheet com o pedido */
+    .sheet-bg{ position:fixed; inset:0; background:rgba(15,10,7,.6); z-index:70; opacity:0; pointer-events:none; transition:opacity .35s; }
+    .sheet-bg.open{ opacity:1; pointer-events:auto; }
+    .sheet{
+      position:fixed; left:0; right:0; bottom:0; z-index:80;
+      background:var(--surface); border-top:1px solid var(--line);
+      border-radius:24px 24px 0 0; padding:8px 0 24px;
+      transform:translateY(100%); transition:transform .4s var(--ease);
+      max-height:82vh; display:flex; flex-direction:column;
+    }
+    .sheet.open{ transform:translateY(0); }
+    .sheet__grip{ width:44px; height:5px; border-radius:100px; background:var(--line); margin:8px auto 6px; }
+    .sheet__head{ display:flex; align-items:center; justify-content:space-between; padding:8px 24px 16px; border-bottom:1px solid var(--line); }
+    .sheet__head h3{ font-family:'Marcellus',serif; font-size:1.4rem; }
+    .sheet__x{ width:38px; height:38px; border-radius:50%; background:var(--surface2); display:grid; place-items:center; }
+    .sheet__x:hover{ background:#43352b; }
+    .sheet__items{ overflow-y:auto; padding:8px 24px; flex:1; }
+    .sheet__empty{ text-align:center; color:var(--muted); padding:40px 0; }
+
+    .line{ display:flex; align-items:center; gap:14px; padding:14px 0; border-bottom:1px solid var(--line); }
+    .line__emoji{ width:46px; height:46px; flex:none; border-radius:12px; display:grid; place-items:center; font-size:1.4rem; background:var(--surface2); }
+    .line__info{ flex:1; min-width:0; }
+    .line__info b{ font-family:'Marcellus',serif; font-weight:400; font-size:1.02rem; display:block; }
+    .line__info small{ color:var(--muted); font-size:.84rem; }
+    .stepper{ display:flex; align-items:center; gap:12px; background:var(--surface2); border-radius:100px; padding:5px 8px; }
+    .stepper button{ width:28px; height:28px; border-radius:50%; background:var(--bg); display:grid; place-items:center; font-weight:800; color:var(--accent); transition:transform .2s; }
+    .stepper button:hover{ transform:scale(1.12); }
+    .stepper span{ min-width:18px; text-align:center; font-weight:700; }
+
+    .sheet__foot{ padding:18px 24px 0; border-top:1px solid var(--line); }
+    .sheet__total{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:16px; }
+    .sheet__total span{ color:var(--muted); }
+    .sheet__total b{ font-family:'Marcellus',serif; font-size:1.7rem; color:var(--accent); }
+    .checkout{ display:flex; align-items:center; justify-content:center; gap:10px; width:100%; padding:16px; border-radius:14px; background:#1FAF55; color:#fff; font-weight:800; font-size:1rem; transition:transform .3s var(--ease); }
+    .checkout:hover{ transform:translateY(-2px); }
+    .checkout:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
+    .sheet__note{ text-align:center; color:var(--muted); font-size:.78rem; margin-top:12px; }
+
+    /* ====================== RODAPÉ ====================== */
+    .foot{ border-top:1px solid var(--line); padding:46px 0 40px; }
+    .foot__row{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:18px; }
+    .foot small{ color:var(--muted); font-size:.84rem; }
+    .back{ display:inline-flex; align-items:center; gap:8px; font-size:.9rem; color:var(--muted); }
+    .back:hover{ color:var(--ink); }
+
+    /* ====================== RESPONSIVO ====================== */
+    @media (max-width:820px){
+      .nav__links{ display:none; }
+      .menu{ grid-template-columns:1fr; }
+      .about,.hours{ grid-template-columns:1fr; }
+      .about__art{ max-height:280px; }
+    }
+    @media (max-width:520px){
+      .wrap{ padding:0 18px; }
+      .dish{ flex-wrap:wrap; }
+      .foot__row{ flex-direction:column; align-items:flex-start; }
+    }
+    @media (prefers-reduced-motion:reduce){ *{ animation:none !important; transition:none !important; scroll-behavior:auto; } }
+  </style>
+</head>
+<body>
+
+  <!-- ============ BARRA SUPERIOR ============ -->
+  <nav class="nav">
+    <div class="wrap nav__in">
+      <a class="logo" href="#topo"><span class="logo__mark">F</span> Fogo &amp; Sal</a>
+      <div class="nav__links">
+        <a href="#cardapio">Cardápio</a>
+        <a href="#sobre">Sobre</a>
+        <a href="#horarios">Horários</a>
+      </div>
+      <button class="btn" onclick="abrirSheet()">Fazer pedido</button>
+    </div>
+  </nav>
+
+  <div id="topo">
+
+    <!-- ============ HERO ============ -->
+    <section class="hero">
+      <div class="hero__art"></div>
+      <div class="wrap hero__in">
+        <span class="hero__eyebrow">Cozinha na brasa · Itajaí</span>
+        <h1 class="display">Sabor que vem<br>do fogo lento.</h1>
+        <p>Carnes na brasa, massas frescas e uma carta de vinhos para acompanhar. Monte seu pedido e finalize em segundos.</p>
+        <div class="hero__actions">
+          <a class="btn" href="#cardapio">Ver cardápio</a>
+          <a class="btn btn--ghost" href="#horarios">Reservar mesa</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CARDÁPIO ============ -->
+    <section class="sec" id="cardapio">
+      <span class="sec__tag">Nosso menu</span>
+      <h2 class="sec__title display">Cardápio</h2>
+      <p class="sec__lead">Toque numa categoria para navegar e adicione os pratos ao seu pedido.</p>
+
+      <!-- Abas (categorias) -->
+      <div class="tabs" id="tabs"><!-- preenchido via JS --></div>
+
+      <!-- Lista de pratos -->
+      <div class="menu" id="menu"><!-- preenchido via JS --></div>
+    </section>
+
+    <!-- ============ SOBRE / AMBIENTE ============ -->
+    <section class="sec" id="sobre">
+      <div class="wrap">
+        <div class="about">
+          <div class="about__art" aria-hidden="true"></div>
+          <div>
+            <span class="sec__tag" style="text-align:left">A casa</span>
+            <h2 class="display" style="margin-top:10px">Comida de verdade, no tempo certo.</h2>
+            <p>Trabalhamos com ingredientes frescos, fornecedores locais e o respeito ao fogo. Cada prato sai da nossa cozinha aberta para a sua mesa — sem pressa, com sabor.</p>
+            <div class="about__stats">
+              <div><b>+40</b><small>pratos no cardápio</small></div>
+              <div><b>2012</b><small>desde a fundação</small></div>
+              <div><b>4,9★</b><small>avaliação local</small></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ HORÁRIOS / RESERVAS ============ -->
+    <section class="sec" id="horarios">
+      <span class="sec__tag">Visite-nos</span>
+      <h2 class="sec__title display">Horários &amp; reservas</h2>
+      <div class="wrap">
+        <div class="hours">
+          <div class="hours__card">
+            <h3>Funcionamento</h3>
+            <div class="hours__row"><span>Terça a quinta</span><b>18h — 23h</b></div>
+            <div class="hours__row"><span>Sexta e sábado</span><b>18h — 00h</b></div>
+            <div class="hours__row"><span>Domingo</span><b>12h — 16h</b></div>
+            <div class="hours__row"><span>Segunda</span><b>Fechado</b></div>
+          </div>
+          <div class="hours__card">
+            <h3>Contato</h3>
+            <div class="hours__row"><span>Endereço</span><b>Av. Beira-Mar, 500 — Itajaí/SC</b></div>
+            <div class="hours__row"><span>Reservas</span><b>(47) 9 9999-9999</b></div>
+            <div class="hours__row"><span>Estacionamento</span><b>Valet disponível</b></div>
+            <a class="btn" href="#cardapio" style="margin-top:18px">Montar pedido</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ RODAPÉ ============ -->
+  <footer class="foot">
+    <div class="wrap foot__row">
+      <div>
+        <div class="logo" style="margin-bottom:10px"><span class="logo__mark">F</span> Fogo &amp; Sal</div>
+        <small>Demonstração de site · design <b>EzStudio</b></small>
+      </div>
+      <a class="back" href="index.html">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Voltar à vitrine
+      </a>
+    </div>
+  </footer>
+
+  <!-- ============ CARRINHO: pílula fixa ============ -->
+  <button class="cart-pill" id="cartPill" onclick="abrirSheet()">
+    <span class="cart-pill__count" id="pillCount">0</span>
+    <span class="cart-pill__total" id="pillTotal">R$ 0,00</span>
+    <span class="cart-pill__go">Ver pedido
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </span>
+  </button>
+
+  <!-- ============ CARRINHO: bottom sheet ============ -->
+  <div class="sheet-bg" id="sheetBg" onclick="fecharSheet()"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Seu pedido">
+    <div class="sheet__grip"></div>
+    <div class="sheet__head">
+      <h3 class="display">Seu pedido</h3>
+      <button class="sheet__x" onclick="fecharSheet()" aria-label="Fechar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="sheet__items" id="sheetItems"></div>
+    <div class="sheet__foot">
+      <div class="sheet__total"><span>Total</span><b id="sheetTotal">R$ 0,00</b></div>
+      <button class="checkout" id="checkout" onclick="finalizar()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 018.413 3.488 11.824 11.824 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24z"/></svg>
+        Finalizar pelo WhatsApp
+      </button>
+      <p class="sheet__note">Demonstração — o pedido seria enviado direto ao restaurante.</p>
+    </div>
+  </div>
+
+  <script>
+  /* ===================================================================
+     LÓGICA DA DEMO DO RESTAURANTE
+     =================================================================== */
+
+  /* TROQUE-AQUI: número do WhatsApp do restaurante (55 + DDD + número) */
+  const WHATSAPP = "5547999999999";
+
+  /* ----- CARDÁPIO: edite aqui para mudar pratos, descrições e preços ----- */
+  const CARDAPIO = {
+    "Entradas": [
+      { id:'e1', emoji:'🍅', nome:'Bruschetta de Tomate', desc:'Pão artesanal, tomate confit e manjericão.', preco:28, veg:true },
+      { id:'e2', emoji:'🧆', nome:'Bolinho de Bacalhau', desc:'Seis unidades crocantes com aioli de limão.', preco:36 },
+      { id:'e3', emoji:'🥩', nome:'Carpaccio da Casa', desc:'Lâminas finas, parmesão e alcaparras.', preco:42 },
+      { id:'e4', emoji:'🧀', nome:'Tábua de Queijos', desc:'Seleção de frios, geleia e castanhas.', preco:54 },
+    ],
+    "Principais": [
+      { id:'p1', emoji:'🥩', nome:'Picanha na Brasa', desc:'350g, farofa de bacon e vinagrete.', preco:89 },
+      { id:'p2', emoji:'🐟', nome:'Salmão Grelhado', desc:'Filé com risoto de limão siciliano.', preco:76 },
+      { id:'p3', emoji:'🍄', nome:'Risoto de Cogumelos', desc:'Funghi, parmesão e azeite trufado.', preco:64, veg:true },
+      { id:'p4', emoji:'🍗', nome:'Frango Supremo', desc:'Sobrecoxa recheada e purê rústico.', preco:58 },
+    ],
+    "Massas": [
+      { id:'m1', emoji:'🍝', nome:'Spaghetti alle Vongole', desc:'Vôngoles frescos, vinho branco e salsa.', preco:68 },
+      { id:'m2', emoji:'🍝', nome:'Nhoque ao Sugo', desc:'Massa da casa com molho de tomate lento.', preco:52, veg:true },
+      { id:'m3', emoji:'🧀', nome:'Lasanha da Nonna', desc:'Camadas de ragu e queijos gratinados.', preco:58 },
+    ],
+    "Sobremesas": [
+      { id:'s1', emoji:'🍫', nome:'Petit Gâteau', desc:'Bolo quente com sorvete de creme.', preco:32, veg:true },
+      { id:'s2', emoji:'🍰', nome:'Tiramisù', desc:'Clássico italiano com café e cacau.', preco:30, veg:true },
+      { id:'s3', emoji:'🍮', nome:'Pudim de Leite', desc:'Receita de família, calda de caramelo.', preco:22, veg:true },
+    ],
+    "Bebidas": [
+      { id:'b1', emoji:'🍷', nome:'Taça de Vinho', desc:'Tinto ou branco da nossa seleção.', preco:34 },
+      { id:'b2', emoji:'🍹', nome:'Drink da Casa', desc:'Coquetel autoral com frutas frescas.', preco:28 },
+      { id:'b3', emoji:'🧃', nome:'Suco Natural', desc:'Laranja, abacaxi ou maracujá.', preco:16, veg:true },
+      { id:'b4', emoji:'💧', nome:'Água Mineral', desc:'Com ou sem gás, 500ml.', preco:8, veg:true },
+    ],
+  };
+
+  /* índice rápido id -> prato (para o carrinho) */
+  const PRATOS = {};
+  Object.values(CARDAPIO).flat().forEach(p=> PRATOS[p.id]=p);
+
+  /* ----- Carrinho: { id: quantidade } ----- */
+  const carrinho = {};
+  const brl = n => 'R$ ' + n.toFixed(2).replace('.', ',');
+
+  /* ----- Monta as abas ----- */
+  const tabs = document.getElementById('tabs');
+  const categorias = Object.keys(CARDAPIO);
+  categorias.forEach((cat,i)=>{
+    const b = document.createElement('button');
+    b.className = 'tab' + (i===0?' active':'');
+    b.textContent = cat;
+    b.onclick = ()=> mostrarCategoria(cat, b);
+    tabs.appendChild(b);
+  });
+
+  /* ----- Mostra os pratos de uma categoria ----- */
+  const menu = document.getElementById('menu');
+  function mostrarCategoria(cat, btn){
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    btn.classList.add('active');
+    menu.innerHTML = '';
+    CARDAPIO[cat].forEach((p,i)=>{
+      const el = document.createElement('article');
+      el.className = 'dish enter';
+      el.style.animationDelay = (i*60) + 'ms';
+      el.innerHTML = `
+        <div class="dish__emoji">${p.emoji}</div>
+        <div class="dish__body">
+          <div class="dish__top">
+            <span class="dish__name">${p.nome}${p.veg?'<span class="dish__veg">VEG</span>':''}</span>
+            <span class="dish__price">${brl(p.preco)}</span>
+          </div>
+          <p class="dish__desc">${p.desc}</p>
+          <button class="add" data-id="${p.id}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            Adicionar
+          </button>
+        </div>`;
+      menu.appendChild(el);
+    });
+    // liga os botões "Adicionar"
+    menu.querySelectorAll('.add').forEach(btn=>{
+      btn.onclick = ()=>{ adicionar(btn.dataset.id); btn.classList.add('bump'); setTimeout(()=>btn.classList.remove('bump'),400); };
+    });
+  }
+
+  /* ----- Adiciona/remove itens ----- */
+  function adicionar(id){ carrinho[id] = (carrinho[id]||0) + 1; atualizar(); }
+  function remover(id){ if(carrinho[id]){ carrinho[id]--; if(carrinho[id]<=0) delete carrinho[id]; } atualizar(); }
+
+  /* ----- Atualiza pílula + bottom sheet ----- */
+  function atualizar(){
+    const ids = Object.keys(carrinho);
+    const qtd = ids.reduce((s,id)=> s + carrinho[id], 0);
+    const total = ids.reduce((s,id)=> s + carrinho[id]*PRATOS[id].preco, 0);
+
+    // pílula
+    document.getElementById('pillCount').textContent = qtd;
+    document.getElementById('pillTotal').textContent = brl(total);
+    document.getElementById('cartPill').classList.toggle('show', qtd>0);
+
+    // total do sheet
+    document.getElementById('sheetTotal').textContent = brl(total);
+    document.getElementById('checkout').disabled = qtd===0;
+
+    // itens do sheet
+    const cont = document.getElementById('sheetItems');
+    if(qtd===0){
+      cont.innerHTML = '<div class="sheet__empty">Seu pedido está vazio.<br>Adicione pratos do cardápio 🍽️</div>';
+      return;
+    }
+    cont.innerHTML = '';
+    ids.forEach(id=>{
+      const p = PRATOS[id]; const q = carrinho[id];
+      const line = document.createElement('div');
+      line.className = 'line';
+      line.innerHTML = `
+        <div class="line__emoji">${p.emoji}</div>
+        <div class="line__info"><b>${p.nome}</b><small>${brl(p.preco)} · subtotal ${brl(p.preco*q)}</small></div>
+        <div class="stepper">
+          <button aria-label="Diminuir" data-minus="${id}">−</button>
+          <span>${q}</span>
+          <button aria-label="Aumentar" data-plus="${id}">+</button>
+        </div>`;
+      cont.appendChild(line);
+    });
+    cont.querySelectorAll('[data-plus]').forEach(b=> b.onclick = ()=> adicionar(b.dataset.plus));
+    cont.querySelectorAll('[data-minus]').forEach(b=> b.onclick = ()=> remover(b.dataset.minus));
+  }
+
+  /* ----- Abrir/fechar o bottom sheet ----- */
+  function abrirSheet(){ document.getElementById('sheet').classList.add('open'); document.getElementById('sheetBg').classList.add('open'); }
+  function fecharSheet(){ document.getElementById('sheet').classList.remove('open'); document.getElementById('sheetBg').classList.remove('open'); }
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') fecharSheet(); });
+
+  /* ----- Finalizar: monta a mensagem do pedido e abre o WhatsApp ----- */
+  function finalizar(){
+    const ids = Object.keys(carrinho);
+    if(ids.length===0) return;
+    let total = 0;
+    let linhas = ids.map(id=>{
+      const p = PRATOS[id]; const q = carrinho[id]; total += q*p.preco;
+      return `• ${q}x ${p.nome} — ${brl(p.preco*q)}`;
+    }).join('%0A');
+    const msg = `Olá! Quero fazer um pedido:%0A${linhas}%0A%0ATotal: ${brl(total)}`;
+    window.open(`https://wa.me/${WHATSAPP}?text=${msg}`, '_blank');
+  }
+
+  /* ----- Inicia mostrando a primeira categoria ----- */
+  mostrarCategoria(categorias[0], tabs.firstChild);
+  atualizar();
+  </script>
+</body>
+</html>
